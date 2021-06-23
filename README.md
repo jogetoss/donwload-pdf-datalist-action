@@ -1,6 +1,6 @@
 # Description
 
-This repository is meant to serve as a general template for how to set up new repositories in the JogetOSS organization. 
+This bundle contains Download PDF Datalist Action Plugin. This plugin is provides an easy option for users to print form record(s) to PDF, without opening the form. Please refer to its [documentation](https://dev.joget.org/community/display/DX7/How+to+develop+a+Download+PDF+Datalist+Action).
 
 # Getting Help
 

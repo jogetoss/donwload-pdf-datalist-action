@@ -1,0 +1,84 @@
+[{
+    title : '@@datalist.downloadPdf.config@@',
+    properties : [{
+        name : 'label',
+        label : '@@datalist.downloadPdf.label@@',
+        type : 'textfield',
+        value : '@@datalist.downloadPdf.download@@'
+    },
+    {
+        name : 'formDefId',
+        label : '@@datalist.downloadPdf.form@@',
+        type : 'selectbox',
+        options_ajax : '[CONTEXT_PATH]/web/json/console/app[APP_PATH]/forms/options',
+        required : 'True'
+    },
+    {
+        name : 'recordIdColumn',
+        label : '@@datalist.downloadPdf.recordIdColumn@@',
+        description : '@@datalist.downloadPdf.recordIdColumn.desc@@',
+        type : 'textfield'
+    },
+    {
+        name : 'confirmation',
+        label : '@@datalist.downloadPdf.confirmationMessage@@',
+        type : 'textfield'
+    }]
+},
+{
+    title : '@@datalist.downloadPdf.advanced@@',
+    properties : [{
+        name : 'formatting',
+        label : '@@datalist.downloadPdf.formatting@@',
+        type : 'codeeditor',
+        mode : 'css'
+    },
+    {
+        name : 'headerHtml',
+        label : '@@datalist.downloadPdf.headerHtml@@',
+        type : 'codeeditor',
+        mode : 'html'
+    },
+    {
+        name : 'repeatHeader',
+        label : '@@datalist.downloadPdf.repeatHeader@@',
+        type : 'checkbox',
+        options : [{
+            value : 'true',
+            label : ''
+        }]
+    },
+    {
+        name : 'footerHtml',
+        label : '@@datalist.downloadPdf.footerHtml@@',
+        type : 'codeeditor',
+        mode : 'html'
+    },
+    {
+        name : 'repeatFooter',
+        label : '@@datalist.downloadPdf.repeatFooter@@',
+        type : 'checkbox',
+        options : [{
+            value : 'true',
+            label : ''
+        }]
+    },
+    {
+        name : 'hideEmptyValueField',
+        label : '@@datalist.downloadPdf.hideEmptyValueField@@',
+        type : 'checkbox',
+        options : [{
+            value : 'true',
+            label : ''
+        }]
+    },
+    {
+        name : 'showNotSelectedOptions',
+        label : '@@datalist.downloadPdf.showNotSelectedOptions@@',
+        type : 'checkbox',
+        options : [{
+            value : 'true',
+            label : ''
+        }]
+    }]
+}]
