@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLEncoder;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import javax.servlet.ServletException;
@@ -17,7 +19,10 @@ import org.joget.apps.datalist.model.DataList;
 import org.joget.apps.datalist.model.DataListActionDefault;
 import org.joget.apps.datalist.model.DataListActionResult;
 import org.joget.apps.form.service.FormPdfUtil;
+import static org.joget.apps.form.service.FormPdfUtil.getSelectedFormHtml;
 import org.joget.commons.util.LogUtil;
+import org.joget.commons.util.StringUtil;
+import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.util.WorkflowUtil;
 
 public class DownloadPdfDatalistAction extends DataListActionDefault {
@@ -31,7 +36,7 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
 
     @Override
     public String getVersion() {
-        return "7.0.0";
+        return "7.0.1";
     }
     
     @Override
@@ -205,9 +210,25 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
             footer = AppUtil.processHashVariable(footer, null, null, null);
         }
         
-        return FormPdfUtil.createPdf(formDefId, id, appDef, null, hideEmptyValueField, header, footer, css, showNotSelectedOptions, repeatHeader, repeatFooter);
+        return createPdf(formDefId, id, appDef, null, hideEmptyValueField, header, footer, css, showNotSelectedOptions, repeatHeader, repeatFooter);
     }
-    
+
+    public static byte[] createPdf(String formId, String primaryKey, AppDefinition appDef, WorkflowAssignment assignment, Boolean hideEmpty, String header, String footer, String css, Boolean showAllSelectOptions, Boolean repeatHeader, Boolean repeatFooter) {
+        try {
+            String html = getSelectedFormHtml(formId, primaryKey, appDef, assignment, hideEmpty);
+
+            header = AppUtil.processHashVariable(header, assignment, null, null);
+            footer = AppUtil.processHashVariable(footer, assignment, null, null);
+          
+            html = cleanFormHtml(html, showAllSelectOptions);
+            
+            return FormPdfUtil.createPdf(html, header, footer, css, showAllSelectOptions, repeatHeader, repeatFooter, true);
+        } catch (Exception e) {
+            LogUtil.error(FormPdfUtil.class.getName(), e, "");
+        }
+        return null;
+    }
+
     /**
      * Write to response for download
      * @param request
@@ -235,5 +256,101 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
             //simply foward to a 
             request.getRequestDispatcher(filename).forward(request, response);
         }
+    }
+    
+    public static String cleanFormHtml(String html, Boolean showAllSelectOptions) {
+        
+         //remove script
+        html = html.replaceAll("(?s)<script[^>]*>.*?</script>", "");
+
+        //remove style
+        html = html.replaceAll("(?s)<style[^>]*>.*?</style>", "");
+        
+        //remove hidden field
+        html = html.replaceAll("<input[^>]*type=\"hidden\"[^>]*>", "");
+        html = html.replaceAll("<input[^>]*type=\'hidden\'[^>]*>", "");
+        
+        //remove <br>
+        html = html.replaceAll("<br>", "<br/>");
+        
+        //remove form tag
+        html = html.replaceAll("<form[^>]*>", "");
+        html = html.replaceAll("</\\s?form>", "");
+
+        //remove button
+        html = html.replaceAll("<button[^>]*>[^>]*</\\s?button>>", "");
+
+        //remove validator decorator
+        html = html.replaceAll("<span\\s?class=\"[^\"]*cell-validator[^\"]?\"[^>]*>[^>]*</\\s?span>", "");
+
+        //remove link
+        html = html.replaceAll("<link[^>]*>", "");
+
+        //remove id
+        html = html.replaceAll("id=\"([^\\\"]*)\"", "");
+        
+        //remove hidden td
+        html = html.replaceAll("<td\\s?style=\\\"[^\\\"]*display:none;[^\\\"]?\\\"[^>]*>.*?</\\s?td>", "");
+        
+        //convert label for checkbox and radio
+        Pattern formdiv = Pattern.compile("<div class=\"form-cell-value\" >.*?</div>", Pattern.DOTALL);
+        Matcher divMatcher = formdiv.matcher(html);
+        while (divMatcher.find()) {
+            String divString = divMatcher.group(0);
+
+            Pattern tempPatternLabel = Pattern.compile("<label(.*?)>(.|\\s)*?</label>");
+            Matcher tempMatcherLabel = tempPatternLabel.matcher(divString);
+            int count = 0;
+            String inputStringLabel = "";
+            String replaceLabel = "";
+            while (tempMatcherLabel.find()) {
+
+                inputStringLabel = tempMatcherLabel.group(0);
+                //get the input field
+                Pattern patternInput = Pattern.compile("<input[^>]*>");
+                Matcher matcherInput = patternInput.matcher(inputStringLabel);
+                String tempLabel = "";
+                if (matcherInput.find()) {
+                    tempLabel = matcherInput.group(0);
+                }
+
+                //get the type
+                Pattern patternType = Pattern.compile("type=\"([^\\\"]*)\"");
+                Matcher matcherType = patternType.matcher(tempLabel);
+                String type = "";
+                if (matcherType.find()) {
+                    type = matcherType.group(1);
+                }
+
+                if (type.equalsIgnoreCase("checkbox") || type.equalsIgnoreCase("radio")) {
+                    if (showAllSelectOptions != null && showAllSelectOptions) {
+                        replaceLabel += inputStringLabel.replaceAll("<label(.*?)>", "");
+                        replaceLabel = replaceLabel.replaceAll("</label(.*?)>", "");
+                    } else {
+                        if (inputStringLabel.contains("checked")) {
+                            if (count > 0) {
+                                replaceLabel += ", ";
+                            }
+                            String label = "";
+                            Pattern patternLabel = Pattern.compile("</i>(.|\\s)*?</label>");
+                            Matcher matcherLabel = patternLabel.matcher(inputStringLabel);
+                            if (matcherLabel.find()) {
+                                label = matcherLabel.group(0);
+                                label = label.replaceAll("<(.*?)i>", "");
+                                label = label.replaceAll("</label(.*?)>", "");
+                                label = label.trim();
+                            }
+                            replaceLabel += label;
+                            count += 1;
+                        }
+                    }
+                }
+            }
+            if (count > 0) {
+                replaceLabel = "<span>" + replaceLabel + "</span>";
+            }
+            html = html.replaceAll(StringUtil.escapeRegex(divString), StringUtil.escapeRegex(replaceLabel));
+        }
+        return html;
     }
 }

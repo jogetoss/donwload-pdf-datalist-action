@@ -4,7 +4,7 @@
     <groupId>org.joget.tutorial</groupId>
     <artifactId>download_pdf_datalist_action</artifactId>
     <packaging>bundle</packaging>
-    <version>7.0.0</version>
+    <version>7.0.1</version>
     <name>download_pdf_datalist_action</name>
     <url>http://www.joget.org</url>
     <build>
