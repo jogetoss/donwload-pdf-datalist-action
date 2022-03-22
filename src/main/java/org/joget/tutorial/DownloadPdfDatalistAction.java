@@ -36,7 +36,7 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
 
     @Override
     public String getVersion() {
-        return "7.0.1";
+        return "7.0.2";
     }
     
     @Override
@@ -344,6 +344,21 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
                             count += 1;
                         }
                     }
+                } else {
+                    if (count > 0) {
+                        replaceLabel += ", ";
+                    }
+                    String span = "";
+                    Pattern patternSpan = Pattern.compile("<span(.*?)>(.|\\s)*?</span>");
+                    Matcher matcherSpan = patternSpan.matcher(inputStringLabel);
+                    if (matcherSpan.find()) {
+                        span = matcherSpan.group(0);
+                        span = span.replaceAll("<(.*?)span>", "");
+                        span = span.replaceAll("</span(.*?)>", "");
+                        span = span.trim();
+                    }
+                    replaceLabel += span;
+                    count += 1;
                 }
             }
             if (count > 0) {
