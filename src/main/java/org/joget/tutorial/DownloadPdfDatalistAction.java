@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -14,12 +16,16 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.ArrayUtils;
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppPluginUtil;
+import org.joget.apps.app.service.AppService;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.datalist.model.DataList;
 import org.joget.apps.datalist.model.DataListActionDefault;
 import org.joget.apps.datalist.model.DataListActionResult;
+import org.joget.apps.form.model.FormRow;
+import org.joget.apps.form.model.FormRowSet;
 import org.joget.apps.form.service.FormPdfUtil;
 import static org.joget.apps.form.service.FormPdfUtil.getSelectedFormHtml;
+import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.commons.util.StringUtil;
 import org.joget.workflow.model.WorkflowAssignment;
@@ -36,7 +42,7 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
 
     @Override
     public String getVersion() {
-        return "7.0.2";
+        return "7.0.3";
     }
     
     @Override
@@ -126,6 +132,19 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
         return null;
     }
     
+
+    public String getFileNameFromConfig(String id, String configFileName) {
+        AppService appService = (AppService) FormUtil.getApplicationContext().getBean("appService");
+        AppDefinition appDef = AppUtil.getCurrentAppDefinition();
+        String appVersion = String.valueOf(appDef.getVersion());
+        String appId = appDef.getAppId();
+        String formDefId = getPropertyString("formDefId");
+        FormRowSet frs = appService.loadFormData(appId, appVersion, formDefId, id);
+        FormRow formRow = frs.get(0);
+        String fileName = (String) formRow.get(configFileName);
+        return fileName;
+    }
+
     /**
      * Handles for single pdf file
      * @param request
@@ -136,7 +155,11 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
      */
     protected void singlePdf(HttpServletRequest request, HttpServletResponse response, String rowKey) throws IOException, ServletException {
         byte[] pdf = getPdf(rowKey);
-        writeResponse(request, response, pdf, rowKey+".pdf", "application/pdf");
+        if (!getPropertyString("fileName").isEmpty()) {
+            writeResponse(request, response, pdf, getFileNameFromConfig(rowKey, getPropertyString("fileName"))+".pdf", "application/pdf");
+        } else {
+            writeResponse(request, response, pdf, rowKey+".pdf", "application/pdf");
+        }
     }
     
     /**
@@ -150,18 +173,45 @@ public class DownloadPdfDatalistAction extends DataListActionDefault {
     protected void multiplePdfs(HttpServletRequest request, HttpServletResponse response, String[] rowKeys) throws IOException, ServletException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ZipOutputStream zip = new ZipOutputStream(baos);
+        Map<String, Integer> fileNameCounts = new HashMap<>();
         
         try {
             //create pdf and put in zip
             for (String id : rowKeys) {
                 byte[] pdf = getPdf(id);
-                zip.putNextEntry(new ZipEntry(id+".pdf"));
+
+                String fileName;
+                if (!getPropertyString("fileName").isEmpty()) {
+                    fileName = getFileNameFromConfig(id, getPropertyString("fileName")) + ".pdf";
+                } else {
+                    fileName = id + ".pdf";
+                }
+                
+                // Check if the filename already exists in the zip
+                if (fileNameCounts.containsKey(fileName)) {
+                    int count = fileNameCounts.get(fileName);
+                    count++;
+                    fileNameCounts.put(fileName, count);
+                    
+                    String baseFileName = fileName.substring(0, fileName.lastIndexOf('.'));
+                    String fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+                    
+                    fileName = baseFileName + " (" + count + ")" + fileExtension;
+                } else {
+                    fileNameCounts.put(fileName, 0);
+                }
+                
+                zip.putNextEntry(new ZipEntry(fileName));
                 zip.write(pdf);
                 zip.closeEntry();
             }
 
             zip.finish();
-            writeResponse(request, response, baos.toByteArray(), getLinkLabel() +".zip", "application/zip");
+            if (!getPropertyString("zipFileName").isEmpty()) {
+                writeResponse(request, response, baos.toByteArray(), getPropertyString("zipFileName") +".zip", "application/zip");
+            } else {
+                writeResponse(request, response, baos.toByteArray(), getLinkLabel() +".zip", "application/zip");
+            }
         } finally {
             baos.close();
             zip.flush();
